@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>DJ예찬 - 실시간 통계</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = { /* 입력 페이지와 동일한 설정값 입력 */ };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // 카운트 업데이트
+        onValue(ref(db, 'votes'), (snapshot) => {
+            const data = snapshot.val() || { o: 0, x: 0 };
+            document.getElementById('o-count').innerText = data.o;
+            document.getElementById('x-count').innerText = data.x;
+        });
+
+        // 댓글 실시간 업데이트
+        onValue(ref(db, 'comments'), (snapshot) => {
+            const listEl = document.getElementById('comment-display');
+            listEl.innerHTML = '';
+            const data = snapshot.val();
+            if (data) {
+                // 최신순으로 정렬하여 마지막 10개만 표시
+                const entries = Object.values(data).slice(-10).reverse();
+                entries.forEach(c => {
+                    const p = document.createElement('p');
+                    p.className = "mb-2 text-xl border-b pb-1";
+                    p.innerHTML = `<span class="font-bold text-green-600">[${c.nickname}]</span> ${c.text}`;
+                    listEl.appendChild(p);
+                });
+            }
+        });
+
+        // 초기화 함수
+        window.resetData = () => {
+            if(confirm("모든 투표와 댓글을 초기화할까요?")) {
+                set(ref(db, 'votes'), { o: 0, x: 0 });
+                set(ref(db, 'comments'), null);
+            }
+        };
+    </script>
+</head>
+<body class="bg-gray-900 text-white p-10">
+    <div class="max-w-4xl mx-auto grid grid-cols-2 gap-10">
+        <div class="bg-gray-800 p-10 rounded-3xl border-4 border-green-500 text-center">
+            <h2 class="text-3xl font-bold mb-10 text-green-400 underline italic">LIVE VOTE</h2>
+            <div class="flex justify-around mb-10">
+                <div><p class="text-6xl font-black text-blue-400">O</p><p id="o-count" class="text-7xl font-bold">0</p></div>
+                <div><p class="text-6xl font-black text-red-400">X</p><p id="x-count" class="text-7xl font-bold">0</p></div>
+            </div>
+            <button onclick="resetData()" class="text-gray-500 hover:text-white underline text-sm">시스템 초기화</button>
+        </div>
+
+        <div class="bg-white text-black p-8 rounded-3xl shadow-2xl h-[500px] flex flex-col">
+            <h2 class="text-2xl font-bold mb-4 border-l-8 border-green-500 pl-3">실시간 메시지</h2>
+            <div id="comment-display" class="flex-1 overflow-hidden italic">
+                </div>
+        </div>
+    </div>
+</body>
+</html>
