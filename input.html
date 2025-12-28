@@ -7,23 +7,23 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, set, onValue, push, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // Firebase 설정 (본인의 설정값으로 교체 필수)
-     const firebaseConfig = {
-  apiKey: "AIzaSyA4f6lYwTUK8PxjnKb-jEXOXwWgj0KJdxo",
-  authDomain: "ddkpp7.firebaseapp.com",
-  projectId: "ddkpp7",
-  storageBucket: "ddkpp7.firebasestorage.app",
-  messagingSenderId: "710654878188",
-  appId: "1:710654878188:web:125f72d75677dc8ac820c9",
-  measurementId: "G-ZLJVX995JC"
-};
+        // Firebase 설정
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4f6lYwTUK8PxjnKb-jEXOXwWgj0KJdxo",
+            authDomain: "ddkpp7.firebaseapp.com",
+            projectId: "ddkpp7",
+            storageBucket: "ddkpp7.firebasestorage.app",
+            messagingSenderId: "710654878188",
+            appId: "1:710654878188:web:125f72d75677dc8ac820c9",
+            measurementId: "G-ZLJVX995JC"
+        };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // 댓글 전송 함수
+        // 1. 댓글 전송 함수
         window.submitComment = () => {
             const nickname = document.getElementById('nickname').value;
             const text = document.getElementById('comment-input').value;
@@ -35,42 +35,98 @@
                 timestamp: Date.now() 
             });
             document.getElementById('comment-input').value = '';
-            alert("댓글이 등록되었습니다!");
         };
 
-        // 투표 함수
+        // 2. 투표 함수
         window.vote = (type) => {
             const voteRef = ref(db, `votes/${type}`);
             onValue(voteRef, (snapshot) => {
                 const current = snapshot.val() || 0;
                 set(ref(db, `votes/${type}`), current + 1);
             }, { onlyOnce: true });
-            alert(type.toUpperCase() + "에 투표했습니다!");
         };
+
+        // 3. 실시간 투표 결과 수신
+        onValue(ref(db, 'votes'), (snapshot) => {
+            const data = snapshot.val() || { o: 0, x: 0 };
+            const total = (data.o || 0) + (data.x || 0);
+            const oPercent = total === 0 ? 50 : Math.round((data.o / total) * 100);
+            const xPercent = total === 0 ? 50 : 100 - oPercent;
+
+            document.getElementById('o-count').innerText = data.o || 0;
+            document.getElementById('x-count').innerText = data.x || 0;
+            document.getElementById('o-bar').style.width = oPercent + '%';
+            document.getElementById('x-bar').style.width = xPercent + '%';
+        });
+
+        // 4. 실시간 댓글 목록 수신 (최근 20개)
+        const commentsRef = query(ref(db, 'comments'), limitToLast(20));
+        onValue(commentsRef, (snapshot) => {
+            const listArea = document.getElementById('comment-list');
+            listArea.innerHTML = '';
+            const data = snapshot.val();
+            if (data) {
+                // 내림차순 정렬 (최신순)
+                Object.values(data).reverse().forEach(comment => {
+                    const item = document.createElement('div');
+                    item.className = "p-3 bg-gray-50 rounded-lg border border-gray-100 mb-2";
+                    item.innerHTML = `
+                        <div class="flex justify-between mb-1">
+                            <span class="font-bold text-sm text-green-700">${comment.nickname}</span>
+                            <span class="text-[10px] text-gray-400">${new Date(comment.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <p class="text-sm text-gray-700">${comment.text}</p>
+                    `;
+                    listArea.appendChild(item);
+                });
+            }
+        });
     </script>
 </head>
-<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
-    <div class="w-full max-w-sm bg-white p-6 rounded-3xl shadow-xl border border-gray-100">
-        <h1 class="text-xl font-bold text-center text-gray-800 mb-6">보이는라디오 시청자 참여</h1>
+<body class="bg-gray-100 flex justify-center min-h-screen">
+    <div class="w-full max-w-md bg-white min-h-screen shadow-lg flex flex-col">
         
-        <div class="space-y-3 mb-8">
-            <input id="nickname" type="text" placeholder="닉네임 입력" 
-                   class="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-green-500 outline-none">
-            <textarea id="comment-input" rows="3" placeholder="댓글을 남겨주세요" 
-                      class="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-green-500 outline-none"></textarea>
-            <button onclick="submitComment()" 
-                    class="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition">댓글 등록</button>
+        <div class="p-6 pb-0">
+            <h1 class="text-xl font-bold text-center text-gray-800 mb-6">📻 보이는 라디오 참여</h1>
+            
+            <div class="bg-gray-50 p-4 rounded-2xl mb-6 border border-gray-200">
+                <p class="text-center text-xs font-bold text-gray-500 mb-3">현재 투표 현황</p>
+                <div class="flex h-8 w-full rounded-full overflow-hidden mb-2 shadow-inner">
+                    <div id="o-bar" class="bg-blue-500 flex items-center justify-center text-white text-xs font-bold transition-all duration-500" style="width: 50%">O</div>
+                    <div id="x-bar" class="bg-red-500 flex items-center justify-center text-white text-xs font-bold transition-all duration-500" style="width: 50%">X</div>
+                </div>
+                <div class="flex justify-between text-sm font-bold px-2">
+                    <span class="text-blue-600">O: <span id="o-count">0</span>표</span>
+                    <span class="text-red-600">X: <span id="x-count">0</span>표</span>
+                </div>
+            </div>
+
+            <div class="space-y-3 mb-6">
+                <input id="nickname" type="text" placeholder="닉네임" 
+                       class="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-sm">
+                <textarea id="comment-input" rows="2" placeholder="사연이나 댓글을 남겨주세요" 
+                          class="w-full border border-gray-300 p-3 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-sm"></textarea>
+                <button onclick="submitComment()" 
+                        class="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 active:scale-95 transition">댓글 등록</button>
+            </div>
+
+            <div class="flex gap-3 mb-8">
+                <button onclick="vote('o')" 
+                        class="flex-1 bg-blue-500 text-white py-4 rounded-2xl text-2xl font-black shadow-md active:scale-95 transition">O</button>
+                <button onclick="vote('x')" 
+                        class="flex-1 bg-red-500 text-white py-4 rounded-2xl text-2xl font-black shadow-md active:scale-95 transition">X</button>
+            </div>
+            
+            <hr class="border-gray-100">
         </div>
 
-        <hr class="mb-6">
-
-        <div class="text-center">
-            <p class="text-sm font-semibold text-gray-500 mb-3">시청자 투표</p>
-            <div class="flex gap-4">
-                <button onclick="vote('o')" 
-                        class="flex-1 bg-blue-500 text-white py-5 rounded-2xl text-3xl font-black shadow-lg active:scale-95 transition">O</button>
-                <button onclick="vote('x')" 
-                        class="flex-1 bg-red-500 text-white py-5 rounded-2xl text-3xl font-black shadow-lg active:scale-95 transition">X</button>
+        <div class="flex-1 p-6 pt-4 overflow-y-auto">
+            <h2 class="text-sm font-bold text-gray-600 mb-4 flex items-center">
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></span>
+                실시간 댓글 목록
+            </h2>
+            <div id="comment-list" class="space-y-3">
+                <p class="text-center text-gray-400 text-xs py-10">첫 번째 댓글을 남겨보세요!</p>
             </div>
         </div>
     </div>
