@@ -30,7 +30,7 @@
 
             if (lastVoteTime && (now - lastVoteTime < COOLDOWN_MS)) {
                 const remaining = Math.ceil((COOLDOWN_MS - (now - lastVoteTime)) / 1000);
-                alert(`투표는 10초에 한 번만 가능합니다! (${remaining}초 남음)`);
+                alert(`연속으로 투표하실 수 없습니다! (${remaining}초 남음)`);
                 return;
             }
 
