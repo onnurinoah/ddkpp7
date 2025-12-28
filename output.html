@@ -1,75 +1,134 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>DJ예찬 - 실시간 통계</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    <meta charset="UTF-8">
+    <title>DJ예찬 - 실시간 관리자 모드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-const firebaseConfig = {
-            apiKey: "AIzaSyA4f6lYwTUK8PxjnKb-jEXOXwWgj0KJdxo",
-            authDomain: "ddkpp7.firebaseapp.com",
-            databaseURL: "https://ddkpp7-default-rtdb.firebaseio.com", // 이 줄이 꼭 있어야 합니다!
-            projectId: "ddkpp7",
-            storageBucket: "ddkpp7.firebasestorage.app",
-            messagingSenderId: "710654878188",
-            appId: "1:710654878188:web:125f72d75677dc8ac820c9",
-            measurementId: "G-ZLJVX995JC"
-        };
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4f6lYwTUK8PxjnKb-jEXOXwWgj0KJdxo",
+            authDomain: "ddkpp7.firebaseapp.com",
+            databaseURL: "https://ddkpp7-default-rtdb.firebaseio.com",
+            projectId: "ddkpp7",
+            storageBucket: "ddkpp7.firebasestorage.app",
+            messagingSenderId: "710654878188",
+            appId: "1:710654878188:web:125f72d75677dc8ac820c9",
+            measurementId: "G-ZLJVX995JC"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
 
-        // 카운트 업데이트
-        onValue(ref(db, 'votes'), (snapshot) => {
-            const data = snapshot.val() || { o: 0, x: 0 };
-            document.getElementById('o-count').innerText = data.o;
-            document.getElementById('x-count').innerText = data.x;
-        });
+        // 1. 카운트 업데이트 (실시간)
+        onValue(ref(db, 'votes'), (snapshot) => {
+            const data = snapshot.val() || { o: 0, x: 0 };
+            document.getElementById('o-count').innerText = data.o || 0;
+            document.getElementById('x-count').innerText = data.x || 0;
+        });
 
-        // 댓글 실시간 업데이트
-        onValue(ref(db, 'comments'), (snapshot) => {
-            const listEl = document.getElementById('comment-display');
-            listEl.innerHTML = '';
-            const data = snapshot.val();
-            if (data) {
-                // 최신순으로 정렬하여 마지막 10개만 표시
-                const entries = Object.values(data).slice(-10).reverse();
-                entries.forEach(c => {
-                    const p = document.createElement('p');
-                    p.className = "mb-2 text-xl border-b pb-1";
-                    p.innerHTML = `<span class="font-bold text-green-600">[${c.nickname}]</span> ${c.text}`;
-                    listEl.appendChild(p);
-                });
-            }
-        });
+        // 2. 댓글 실시간 업데이트 및 삭제 버튼 생성
+        onValue(ref(db, 'comments'), (snapshot) => {
+            const listEl = document.getElementById('comment-display');
+            listEl.innerHTML = '';
+            const data = snapshot.val();
+            
+            if (data) {
+                // 데이터를 배열로 변환 [ID, 내용]
+                const entries = Object.entries(data).reverse(); // 최신순
 
-        // 초기화 함수
-        window.resetData = () => {
-            if(confirm("모든 투표와 댓글을 초기화할까요?")) {
-                set(ref(db, 'votes'), { o: 0, x: 0 });
-                set(ref(db, 'comments'), null);
-            }
-        };
-    </script>
+                entries.forEach(([id, c]) => {
+                    const div = document.createElement('div');
+                    div.className = "flex justify-between items-start mb-3 border-b pb-2 group";
+                    div.innerHTML = `
+                        <div class="flex-1 pr-4">
+                            <span class="font-bold text-green-600 text-lg">[${c.nickname}]</span>
+                            <span class="text-lg text-gray-800">${c.text}</span>
+                        </div>
+                        <button onclick="deleteComment('${id}')" 
+                                class="bg-red-100 text-red-600 px-2 py-1 rounded text-xs font-bold hover:bg-red-600 hover:text-white transition">
+                            삭제
+                        </button>
+                    `;
+                    listEl.appendChild(div);
+                });
+            } else {
+                listEl.innerHTML = '<p class="text-gray-400 text-center py-10">메시지가 없습니다.</p>';
+            }
+        });
+
+        // 3. 개별 댓글 삭제 함수
+        window.deleteComment = (id) => {
+            if(confirm("이 댓글을 삭제할까요?")) {
+                remove(ref(db, `comments/${id}`))
+                    .then(() => console.log("삭제 성공"))
+                    .catch((error) => alert("삭제 실패: " + error));
+            }
+        };
+
+        // 4. 전체 초기화 함수
+        window.resetData = () => {
+            if(confirm("주의! 모든 투표와 댓글이 사라집니다. 초기화할까요?")) {
+                set(ref(db, 'votes'), { o: 0, x: 0 });
+                remove(ref(db, 'comments'));
+            }
+        };
+    </script>
 </head>
-<body class="bg-gray-900 text-white p-10">
-    <div class="max-w-4xl mx-auto grid grid-cols-2 gap-10">
-        <div class="bg-gray-800 p-10 rounded-3xl border-4 border-green-500 text-center">
-            <h2 class="text-3xl font-bold mb-10 text-green-400 underline italic">LIVE VOTE</h2>
-            <div class="flex justify-around mb-10">
-                <div><p class="text-6xl font-black text-blue-400">O</p><p id="o-count" class="text-7xl font-bold">0</p></div>
-                <div><p class="text-6xl font-black text-red-400">X</p><p id="x-count" class="text-7xl font-bold">0</p></div>
-            </div>
-            <button onclick="resetData()" class="text-gray-500 hover:text-white underline text-sm">시스템 초기화</button>
-        </div>
+<body class="bg-gray-900 text-white p-6 md:p-10 font-sans">
+    <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+        
+        <div class="bg-gray-800 p-8 rounded-3xl border-4 border-green-500 text-center shadow-2xl">
+            <h2 class="text-3xl font-black mb-8 text-green-400 tracking-tighter italic">LIVE STATISTICS</h2>
+            <div class="grid grid-cols-2 gap-4 mb-10">
+                <div class="bg-gray-700 p-6 rounded-2xl">
+                    <p class="text-5xl font-black text-blue-400 mb-2">O</p>
+                    <p id="o-count" class="text-7xl font-bold font-mono">0</p>
+                </div>
+                <div class="bg-gray-700 p-6 rounded-2xl">
+                    <p class="text-5xl font-black text-red-400 mb-2">X</p>
+                    <p id="x-count" class="text-7xl font-bold font-mono">0</p>
+                </div>
+            </div>
+            <button onclick="resetData()" class="text-gray-500 hover:text-red-400 underline text-sm transition">
+                데이터 전체 초기화
+            </button>
+        </div>
 
-        <div class="bg-white text-black p-8 rounded-3xl shadow-2xl h-[500px] flex flex-col">
-            <h2 class="text-2xl font-bold mb-4 border-l-8 border-green-500 pl-3">실시간 메시지</h2>
-            <div id="comment-display" class="flex-1 overflow-hidden italic">
-                </div>
-        </div>
-    </div>
+        <div class="bg-white text-black p-8 rounded-3xl shadow-2xl flex flex-col h-[600px]">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold border-l-8 border-green-500 pl-3 text-gray-800">실시간 메시지 관리</h2>
+                <span class="text-xs text-gray-400">최신순 정렬</span>
+            </div>
+            
+            <div id="comment-display" class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                <div class="animate-pulse flex space-y-4 flex-col">
+                    <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                    <div class="h-4 bg-gray-200 rounded"></div>
+                    <div class="h-4 bg-gray-200 rounded w-5/6"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <style>
+        /* 깔끔한 스크롤바 디자인 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4ade80;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #22c55e;
+        }
+    </style>
 </body>
-</html> 여기서 댓글 스크롤다운해서 확인되게 수정되니?
+</html>
