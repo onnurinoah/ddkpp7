@@ -4,14 +4,28 @@
     <meta charset="UTF-8">
     <title>DJ예찬 - 실시간 통계</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 스크롤바 디자인 (선택 사항) */
+        #comment-display::-webkit-scrollbar {
+            width: 6px;
+        }
+        #comment-display::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        #comment-display::-webkit-scrollbar-thumb {
+            background: #22c55e;
+            border-radius: 10px;
+        }
+    </script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-const firebaseConfig = {
+        const firebaseConfig = {
             apiKey: "AIzaSyA4f6lYwTUK8PxjnKb-jEXOXwWgj0KJdxo",
             authDomain: "ddkpp7.firebaseapp.com",
-            databaseURL: "https://ddkpp7-default-rtdb.firebaseio.com", // 이 줄이 꼭 있어야 합니다!
+            databaseURL: "https://ddkpp7-default-rtdb.firebaseio.com",
             projectId: "ddkpp7",
             storageBucket: "ddkpp7.firebasestorage.app",
             messagingSenderId: "710654878188",
@@ -28,14 +42,14 @@ const firebaseConfig = {
             document.getElementById('x-count').innerText = data.x;
         });
 
-        // 댓글 실시간 업데이트
+        // 댓글 실시간 업데이트 (전체 표시 및 스크롤 가능)
         onValue(ref(db, 'comments'), (snapshot) => {
             const listEl = document.getElementById('comment-display');
             listEl.innerHTML = '';
             const data = snapshot.val();
             if (data) {
-                // 최신순으로 정렬하여 마지막 10개만 표시
-                const entries = Object.values(data).slice(-10).reverse();
+                // .slice(-10)을 제거하여 모든 댓글을 가져오고, 최신순(reverse)으로 표시
+                const entries = Object.values(data).reverse();
                 entries.forEach(c => {
                     const p = document.createElement('p');
                     p.className = "mb-2 text-xl border-b pb-1";
@@ -67,7 +81,7 @@ const firebaseConfig = {
 
         <div class="bg-white text-black p-8 rounded-3xl shadow-2xl h-[500px] flex flex-col">
             <h2 class="text-2xl font-bold mb-4 border-l-8 border-green-500 pl-3">실시간 메시지</h2>
-            <div id="comment-display" class="flex-1 overflow-hidden italic">
+            <div id="comment-display" class="flex-1 overflow-y-auto italic pr-2">
                 </div>
         </div>
     </div>
